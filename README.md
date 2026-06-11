@@ -1,7 +1,3 @@
-# HPM and employee reviews — analysis code
-
-Code accompanying the manuscript "Association between Health and Productivity Management Survey scores and independent employee review ratings" (submitted to Industrial Health).
-
 # HPM Survey Scores and Independent Employee Review Ratings
 
 Data-processing and analysis code for:
@@ -16,12 +12,15 @@ These are the **working scripts as actually used**, published for transparency a
 
 - Scripts were executed **interactively** (RStudio), section by section. Some sections exist purely for inspection (`View()`-style checks, `clipr::write_clip()` calls that copy intermediate tables to the clipboard for manual verification, a helper that opens Google searches in a browser during manual company matching).
 - Manual-resolution decisions (duplicate company codes, name changes, ambiguous matches) are recorded **in full as inline comments**, including the evidence consulted (feedback-sheet URLs, deviation-score agreement, insurer names, corporate-history pages). These comments are the audit trail for every hand-coded correspondence in `replace_code`, `matchbysearch`, `extrac_matching`, and the tkid assignments.
+- Inline comments documenting the manual-resolution decisions are written in **Japanese**; the English Methods section of the manuscript provides the corresponding narrative.
 - Raw input data are **not** redistributed in this repository (see Data availability below). To re-run the pipeline you must obtain the inputs yourself and place them in the directory layout described below.
 - The scripts are provided **as-is**. They may contain exploratory sections, superseded code fragments, and comments from earlier iterations of the analysis; they are not guaranteed to run top-to-bottom without modification. The published manuscript is the authoritative record of the final analytical specification and sample sizes.
 
 ## Pipeline
 
 Scripts are numbered in execution order. Each script reads from `data/` (raw inputs) and/or `middledata/` (intermediate `.rds` files written by earlier scripts).
+
+Note on fiscal-year notation: the manuscript refers to feedback sheets by **publication year (FY2023–2026)**; each publication year reflects the evaluation of initiatives undertaken in the preceding fiscal year (evaluation years FY2022–2025). Some inline comments use the evaluation-year convention.
 
 | Script | Purpose | Key outputs |
 |---|---|---|
@@ -31,12 +30,12 @@ Scripts are numbered in execution order. Each script reads from `data/` (raw inp
 | `04_scrape_and_extract_edinet.R` | (a) Crawls the EDINET document-list API (2017-01-01 to 2026-06-01) for annual securities reports (docType 120) with resumable progress logging; (b) matches HPM-panel listed companies to EDINET codes (exact match on normalized names plus documented manual resolution of ~96 cases, mostly delistings); (c) bulk-downloads the CSV-converted XBRL archives. Requires `EDINET_API_KEY` (see below). | `output/edinet_index.csv`, `middledata/kktoedinetcode.rds`, `data/edinet/docs/*.zip` |
 | `05_tougou_process_extradata.R` | Extracts the target XBRL elements (net income, total assets, employees, average age/tenure/salary, etc.) from the downloaded CSV archives in parallel (`furrr`), pivots to one row per company-year, and computes employee-count-based auxiliary variables. | `middledata/edinetlong.rds`, `middledata/wideedinet.rds` |
 | `06_match_tenshokukaigi_to_kk.R` | Links the Tenshoku-kaigi review data (3,091 companies, provided under agreement with Livesense Inc.) to the HPM panel via normalized-name exact matching; resolves the four residual cases and three split-review name-change cases manually (documented inline). | `middledata/kktotk.rds`, `middledata/tk.rds` |
-| `07_make_panel_master_tantai.R` | Assembles the cross-sectional master table (one row per company): HPM aggregates (latest / mean / OLS slope over FY2022–2025 evaluation years), firm attributes, review scores, and non-consolidated EDINET variables. | `middledata/master_cross_v3.rds` |
+| `07_make_panel_master_tantai.R` | Assembles the cross-sectional master table (one row per company): HPM aggregates (latest / mean / OLS slope across the four survey years), firm attributes, review scores, and non-consolidated EDINET variables. | `middledata/master_cross_v3.rds` |
 | `08_figure1_flow.R` | Computes the sample-selection counts for the flow diagram (Fig. 1) and constructs the analysis dataset, including the holding-company indicators (non-consolidated/consolidated employee ratio, affiliate-shares/total-assets ratio). | `middledata/datafor_analysis.rds` |
 | `09_table1_tertile.R` | Table 1: descriptive statistics by tertile of the latest HPM deviation score (`gtsummary`), with variable construction (winsorized ROA, industry lumping/recoding, English labels). | `middledata/analye_this.rds` |
-| `10_table2_m0m5.R` | Table 2: hierarchical OLS models M0–M5 (industry fixed effects, industry-clustered SEs, `fixest`), fully standardized coefficients, E-values (`EValue`), CR2 small-sample robustness check (`clubSandwich`), and model diagnostics (VIF, splines, DFBETAS, residual checks). | `middledata/data_for_sensitivityanalysis.rds` |
+| `10_table2_m0m5.R` | Table 2: hierarchical OLS models M0–M5 (industry fixed effects, industry-clustered SEs, `fixest`), fully standardized coefficients, CR2 small-sample robustness check (`clubSandwich`), and model diagnostics (VIF, splines, DFBETAS, residual checks). | `middledata/data_for_sensitivityanalysis.rds` |
 | `11_table3_sensitivity.R` | Table 3: sensitivity analyses — (A) ≥100 reviews; (B) four-consecutive-year participants; (C) log(1+reviews) weighting; (D) mean HPM score as exposure; (E1/E2) excluding suspected holding companies (employee ratio ≤2% / ≤10%). | `middledata/datforgraph2.rds` |
-| `12_table4_low.R` | Figure 2: Models 1–6 for each of the 12 review axes, Holm correction across axes for the fully adjusted model, and the forest-plot figure (`ggplot2` + `ragg`). | `paper1/TOUKOUYOU/figure2.png` |
+| `12_table4_low.R` | Figure 2: Models 1–6 for each of the 12 review axes, Holm correction across axes for the fully adjusted model, and the forest-plot figure (`ggplot2` + `ragg`). | `output/figure2.png` |
 
 ## Expected directory layout
 
@@ -53,7 +52,7 @@ Scripts are numbered in execution order. Each script reads from `data/` (raw inp
 │   │   └── extradocs/        # manually downloaded archives for delisted firms
 │   └── kuchikomi/tenshokukaigi/  # Tenshoku-kaigi snapshot (NOT redistributable)
 ├── middledata/   # intermediate .rds files (created by the scripts)
-└── output/       # EDINET crawl index and progress logs
+└── output/       # EDINET crawl index, progress logs, and Figure 2
 ```
 
 ## Data availability
@@ -69,7 +68,7 @@ Because the review data cannot be redistributed, scripts 06 onward cannot be re-
 ## Requirements
 
 - R ≥ 4.5 (analyses in the paper used R 4.5.2)
-- Packages: `tidyverse`, `readxl`, `openxlsx`, `pdftools`, `httr2`, `furrr`, `parallelly`, `lubridate`, `Hmisc`, `gtsummary`, `fixest` (0.14.1), `broom`, `EValue`, `clubSandwich` (0.7.0), `splines`, `scales`, `knitr`, `ragg`, `clipr`
+- Packages: `tidyverse`, `readxl`, `openxlsx`, `pdftools`, `httr2`, `furrr`, `parallelly`, `lubridate`, `Hmisc`, `gtsummary`, `fixest` (0.14.1), `broom`, `clubSandwich` (0.7.0), `splines`, `scales`, `knitr`, `ragg`, `clipr`
 
 ### EDINET API key
 
